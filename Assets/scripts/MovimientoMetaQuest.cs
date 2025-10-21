@@ -9,12 +9,15 @@ public class MovimientoMetaQuest : MonoBehaviour
     public float velocidadRotacion = 60f;
     public bool usarRotacionContinua = false; // false = snap rotation
     
-    [Header("Referencias (se asignan automáticamente)")]
+    [Header("Referencias")]
     public Transform camaraTransform;
+    public Transform trackingSpace; // El TrackingSpace
     public OVRInput.Controller controladorMovimiento = OVRInput.Controller.LTouch;
     public OVRInput.Controller controladorRotacion = OVRInput.Controller.RTouch;
     
     private CharacterController characterController;
+    private float rotacionSnap = 0f;
+    private bool puedeRotarSnap = true;
     
     void Start()
     {
@@ -26,20 +29,40 @@ public class MovimientoMetaQuest : MonoBehaviour
             characterController.height = 1.8f;
             characterController.radius = 0.3f;
             characterController.center = new Vector3(0, 0.9f, 0);
+            characterController.skinWidth = 0.01f;
         }
         
-        // Buscar la cámara automáticamente
+        // Buscar la cámara y tracking space automáticamente si no están asignados
         if (camaraTransform == null)
         {
             camaraTransform = Camera.main.transform;
+        }
+        
+        if (trackingSpace == null)
+        {
+            trackingSpace = transform.Find("TrackingSpace");
         }
     }
     
     void Update()
     {
+        SincronizarCameraRig();
         ManejarMovimiento();
         ManejarRotacion();
         AplicarGravedad();
+    }
+    
+    void SincronizarCameraRig()
+    {
+        // Calcular el offset de la cámara en el plano XZ
+        if (trackingSpace != null && camaraTransform != null)
+        {
+            Vector3 offsetCamara = camaraTransform.localPosition;
+            offsetCamara.y = 0; // Solo nos interesa el offset horizontal
+            
+            // Ajustar el centro del character controller para que coincida con la cámara
+            characterController.center = new Vector3(offsetCamara.x, characterController.height / 2f, offsetCamara.z);
+        }
     }
     
     void ManejarMovimiento()
@@ -78,23 +101,39 @@ public class MovimientoMetaQuest : MonoBehaviour
             if (Mathf.Abs(inputRotacion.x) > 0.1f)
             {
                 float rotacion = inputRotacion.x * velocidadRotacion * Time.deltaTime;
-                transform.Rotate(0, rotacion, 0);
+                RotarRig(rotacion);
             }
         }
         else
         {
             // Rotación snap (45 grados)
-            if (Mathf.Abs(inputRotacion.x) > 0.7f)
+            if (Mathf.Abs(inputRotacion.x) > 0.7f && puedeRotarSnap)
             {
-                if (OVRInput.GetDown(OVRInput.Button.PrimaryThumbstickRight, controladorRotacion))
-                {
-                    transform.Rotate(0, 45f, 0);
-                }
-                else if (OVRInput.GetDown(OVRInput.Button.PrimaryThumbstickLeft, controladorRotacion))
-                {
-                    transform.Rotate(0, -45f, 0);
-                }
+                puedeRotarSnap = false;
+                float angulo = inputRotacion.x > 0 ? 45f : -45f;
+                RotarRig(angulo);
             }
+            else if (Mathf.Abs(inputRotacion.x) < 0.3f)
+            {
+                puedeRotarSnap = true;
+            }
+        }
+    }
+    
+    void RotarRig(float angulo)
+    {
+        // Rotar alrededor de la posición de la cámara, no del centro del rig
+        if (camaraTransform != null)
+        {
+            // Guardar posición de la cámara en el mundo
+            Vector3 posicionCamara = camaraTransform.position;
+            
+            // Rotar el rig
+            transform.RotateAround(posicionCamara, Vector3.up, angulo);
+        }
+        else
+        {
+            transform.Rotate(0, angulo, 0);
         }
     }
     

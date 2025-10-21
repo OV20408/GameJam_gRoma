@@ -6,7 +6,7 @@ public class SistemaAgarreQuest : MonoBehaviour
 {
     [Header("Configuración")]
     public OVRInput.Controller controlador = OVRInput.Controller.RTouch;
-    public float distanciaAgarre = 0.3f;
+    public float distanciaAgarre = 0.7f;
     public LayerMask capasAgarrables;
     
     private GameObject objetoAgarrado;
